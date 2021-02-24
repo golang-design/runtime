@@ -6,15 +6,13 @@
 
 package cgo
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestValueHandle(t *testing.T) {
 	v := 42
 
-	h1 := NewHandle(v)
-	h2 := NewHandle(v)
+	h1 := OpenHandle(v)
+	h2 := OpenHandle(v)
 
 	if uintptr(h1) == uintptr(h2) {
 		t.Fatalf("duplicated Go values should have different handles")
@@ -48,8 +46,8 @@ func TestPointerHandle(t *testing.T) {
 	p1 := &v
 	p2 := &v
 
-	h1 := NewHandle(p1)
-	h2 := NewHandle(p2)
+	h1 := OpenHandle(p1)
+	h2 := OpenHandle(p2)
 
 	if uintptr(h1) != uintptr(h2) {
 		t.Fatalf("pointers to the same value should have same handle")
@@ -92,7 +90,7 @@ func TestNilHandle(t *testing.T) {
 		t.Fatalf("nil should not be created as a handle successfully")
 	}()
 
-	_ = NewHandle(v)
+	_ = OpenHandle(v)
 }
 
 func f1() {}
@@ -104,9 +102,9 @@ func (f *foo) bar() {}
 func (f *foo) wow() {}
 
 func TestFuncHandle(t *testing.T) {
-	h1 := NewHandle(f1)
-	h2 := NewHandle(f2)
-	h3 := NewHandle(f2)
+	h1 := OpenHandle(f1)
+	h2 := OpenHandle(f2)
+	h3 := OpenHandle(f2)
 
 	if h1 == h2 {
 		t.Fatalf("different functions should have different handles")
@@ -116,9 +114,9 @@ func TestFuncHandle(t *testing.T) {
 	}
 
 	f := foo{}
-	h4 := NewHandle(f.bar)
-	h5 := NewHandle(f.bar)
-	h6 := NewHandle(f.wow)
+	h4 := OpenHandle(f.bar)
+	h5 := OpenHandle(f.bar)
+	h6 := OpenHandle(f.wow)
 
 	if h4 != h5 {
 		t.Fatalf("same methods should have same handles")
@@ -131,7 +129,7 @@ func TestFuncHandle(t *testing.T) {
 func BenchmarkHandle(b *testing.B) {
 	b.Run("non-concurrent", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			h := NewHandle(i)
+			h := OpenHandle(i)
 			_ = h.Value()
 			h.Delete()
 		}
@@ -140,7 +138,7 @@ func BenchmarkHandle(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			var v int
 			for pb.Next() {
-				h := NewHandle(v)
+				h := OpenHandle(v)
 				_ = h.Value()
 				h.Delete()
 			}

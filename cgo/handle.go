@@ -56,7 +56,7 @@ import (
 // 	}
 type Handle uintptr
 
-// NewHandle returns a handle for a given value. If a given value is a
+// OpenHandle returns a handle of a given value. If a given value is a
 // pointer, slice, map, channel, or function that refers to the same
 // object, the returned handle will also be the same. Besides, nil value
 // must not be used.
@@ -69,7 +69,7 @@ type Handle uintptr
 // The intended use is to pass the returned handle to C code, which
 // passes it back to Go, which calls Value. See an example in the
 // comments of the Handle definition.
-func NewHandle(v interface{}) Handle {
+func OpenHandle(v interface{}) Handle {
 	var k uintptr
 
 	rv := reflect.ValueOf(v)
