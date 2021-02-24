@@ -9,7 +9,12 @@
 
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+	"os/exec"
+	"strconv"
+	"strings"
+)
 
 var cmdThreads = fmt.Sprintf("ps hH p %d | wc -l", pid)
 

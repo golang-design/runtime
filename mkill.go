@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,9 +19,9 @@ import (
 var (
 	pid = os.Getpid()
 	// minimum number of threads required by the runtime
-	minThreads = int32(runtime.NumCPU()) + 2
+	minThreads = int32(NumCPU()) + 2
 	// 2 meaning runtime sysmon thread + template thread
-	maxThreads = int32(runtime.NumCPU()) + 2
+	maxThreads = int32(NumCPU()) + 2
 	interval   = time.Second
 	debug      = false
 )
@@ -69,7 +68,7 @@ func SetMaxThreads(n int) int {
 					wg.Add(int(nkill))
 					for i := int32(0); i < nkill; i++ {
 						go func() {
-							runtime.LockOSThread()
+							LockOSThread()
 							wg.Done()
 						}()
 					}
