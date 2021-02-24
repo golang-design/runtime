@@ -12,8 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,17 +29,7 @@ var (
 
 // NumThreads returns the number of threads that currently exist.
 func NumThreads() int {
-	out, err := exec.Command("bash", "-c", cmdThreads).Output()
-	if err != nil && debug {
-		fmt.Printf("mkill: failed to fetch #threads: %v\n", err)
-		return 0
-	}
-	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
-	if err != nil && debug {
-		fmt.Printf("mkill: failed to parse #threads: %v\n", err)
-		return 0
-	}
-	return n
+	return numThreads()
 }
 
 var started int32

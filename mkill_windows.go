@@ -11,4 +11,15 @@ package runtime
 
 import "fmt"
 
-var cmdThreads = fmt.Sprintf("nothing-works %d", pid)
+var (
+	kernel32 = syscall.NewLazyDLL("kernel32")
+	getPid   = kernel32.NewProc("GetCurrentProcessId")
+)
+
+func numThreads() int {
+	pid, _, err := getPid.Call()
+	if pid == 0 {
+		panic(fmt.Sprintf("failed to get process id: %v", err))
+	}
+	return int(pid)
+}

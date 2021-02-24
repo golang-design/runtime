@@ -19,16 +19,18 @@ import (
 func TestSetMaxThreads(t *testing.T) {
 	runtime.SetMaxThreads(10)
 
-	// create a lot of threads by sleep gs
+	// create a lot of threads by sleep g
 	wg := sync.WaitGroup{}
-	wg.Add(100000)
-	for i := 0; i < 100000; i++ {
+	wg.Add(1000)
+	for i := 0; i < 1000; i++ {
 		go func() {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
 			time.Sleep(time.Second * 1)
 			wg.Done()
 		}()
 	}
-
+	t.Logf("current threads: %d", runtime.NumThreads())
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	ok := runtime.WaitThreads(ctx)
@@ -36,6 +38,7 @@ func TestSetMaxThreads(t *testing.T) {
 		t.Fatal("mkill failed in 10s")
 	}
 	wg.Wait()
+	t.Logf("current threads: %d", runtime.NumThreads())
 }
 
 func TestMinThreads(t *testing.T) {

@@ -9,6 +9,25 @@
 
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+	"os/exec"
+	"strconv"
+	"strings"
+)
 
 var cmdThreads = fmt.Sprintf("ps M %d | wc -l", pid)
+
+func numThreads() int {
+	out, err := exec.Command("bash", "-c", cmdThreads).Output()
+	if err != nil && debug {
+		fmt.Printf("mkill: failed to fetch #threads: %v\n", err)
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil && debug {
+		fmt.Printf("mkill: failed to parse #threads: %v\n", err)
+		return 0
+	}
+	return n
+}
