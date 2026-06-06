@@ -7,6 +7,12 @@ an extend to Go `runtime` package
 +import "golang.design/x/runtime"
 ```
 
+## Subpackages
+
+- [`thread`](./thread) — threading facilities: scheduling calls on a
+  specific OS thread, thread-local storage, and a bounded thread pool.
+  Previously published as `golang.design/x/thread`.
+
 ## License
 
 MIT | &copy; 2021 The golang.design Initiative Authors, written by [Changkun Ou](https://changkun.de).
