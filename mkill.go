@@ -39,46 +39,19 @@ var started int32
 // setting. The minimum allowed number of threads of a program is
 // runtime.NumCPU() + 2.
 func SetMaxThreads(n int) int {
-	finished := atomic.CompareAndSwapInt32(&started, 0, 1)
-	if !finished {
-		err := checkwork()
-		if err != nil {
+	// Start the watcher exactly once, on the first call. The previous
+	// code inverted this condition (it ran the start block on every call
+	// except the first), so a lone SetMaxThreads call never started the
+	// killer and every subsequent call leaked another ticker goroutine.
+	if atomic.CompareAndSwapInt32(&started, 0, 1) {
+		if err := checkwork(); err != nil {
 			return 0
 		}
 		if debug {
 			fmt.Printf("runtime: pid %v, maxThread %v, interval %v\n",
 				pid, maxThreads, interval)
 		}
-
-		wg := sync.WaitGroup{}
-		go func() {
-			t := time.NewTicker(interval)
-			for {
-				select {
-				case <-t.C:
-					n := NumThreads()
-					nkill := int32(n) - atomic.LoadInt32(&maxThreads)
-					if nkill <= 0 {
-						if debug {
-							fmt.Printf("runtime: checked #threads total %v / max %v\n",
-								n, maxThreads)
-						}
-						continue
-					}
-					wg.Add(int(nkill))
-					for i := int32(0); i < nkill; i++ {
-						go func() {
-							LockOSThread()
-							wg.Done()
-						}()
-					}
-					wg.Wait()
-					if debug {
-						fmt.Printf("runtime: killing #threads, remaining: %v\n", n)
-					}
-				}
-			}
-		}()
+		go watch()
 	}
 
 	if n < int(minThreads) {
@@ -88,23 +61,55 @@ func SetMaxThreads(n int) int {
 	return int(atomic.SwapInt32(&maxThreads, int32(n)))
 }
 
+// watch periodically kills surplus OS threads so their number stays at or
+// below the configured maximum. It runs for the lifetime of the program.
+func watch() {
+	t := time.NewTicker(interval)
+	for range t.C {
+		n := NumThreads()
+		nkill := int32(n) - atomic.LoadInt32(&maxThreads)
+		if nkill <= 0 {
+			if debug {
+				fmt.Printf("runtime: checked #threads total %v / max %v\n",
+					n, atomic.LoadInt32(&maxThreads))
+			}
+			continue
+		}
+		// A goroutine that exits while locked to its OS thread takes the
+		// thread down with it.
+		wg := sync.WaitGroup{}
+		wg.Add(int(nkill))
+		for i := int32(0); i < nkill; i++ {
+			go func() {
+				LockOSThread()
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+		if debug {
+			fmt.Printf("runtime: killing #threads, remaining: %v\n", n)
+		}
+	}
+}
+
 // WaitThreads waits until the number of threads meet the SetMaxThreads
 // settings. The function always returns true if the ctx is not canceled.
 // Otherwise returns true only if the Wait is successed in the last check.
 func WaitThreads(ctx context.Context) (ok bool) {
+	// Poll on a bounded interval instead of busy-spinning. The previous
+	// loop spun with no backoff and called SetMaxThreads(0) as a getter,
+	// forking a shell (and, given the start-up bug above, leaking a
+	// watcher) on every iteration.
+	t := time.NewTicker(interval)
+	defer t.Stop()
 	for {
+		if NumThreads() <= int(atomic.LoadInt32(&maxThreads)) {
+			return true
+		}
 		select {
 		case <-ctx.Done():
-			if NumThreads() <= SetMaxThreads(0) {
-				ok = true
-			}
-			return
-		default:
-			if NumThreads() > SetMaxThreads(0) {
-				continue
-			}
-			ok = true
-			return
+			return NumThreads() <= int(atomic.LoadInt32(&maxThreads))
+		case <-t.C:
 		}
 	}
 }
