@@ -19,9 +19,14 @@ package runtime
 // ends with a white space. Go 1 compatability promise garantees all
 // versions of Go can use this function.
 func Goid() (id uint64) {
-	var buf [30]byte
-	Stack(buf[:], false)
-	for i := 10; buf[i] != ' '; i++ {
+	// The prefix "goroutine " is 10 bytes; a uint64 id is at most 20
+	// digits, so 32 bytes always holds "goroutine <id> ". Bound the scan
+	// by the number of bytes Stack actually wrote so a missing trailing
+	// space (e.g. a future format change or a truncated write) cannot run
+	// the loop past the written region.
+	var buf [32]byte
+	n := Stack(buf[:], false)
+	for i := 10; i < n && buf[i] != ' '; i++ {
 		id = id*10 + uint64(buf[i]&15)
 	}
 	return id
