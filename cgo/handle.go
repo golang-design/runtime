@@ -12,6 +12,7 @@ package cgo // import "golang.design/x/runtime/cgo"
 import (
 	"reflect"
 	"sync"
+	"sync/atomic"
 )
 
 // Handle provides a safe representation to pass Go values between C and
@@ -29,7 +30,7 @@ import (
 // 	void myprint(unsigned long long handle);
 // 	*/
 // 	import "C"
-// 	import "runtime/cgo"
+// 	import "golang.design/x/runtime/cgo"
 //
 // 	//export MyGoPrint
 // 	func MyGoPrint(handle C.ulonglong) {
@@ -41,7 +42,7 @@ import (
 //
 // 	func main() {
 // 		val := 42
-// 		C.myprint(C.ulonglong(cgo.NewHandle(val)))
+// 		C.myprint(C.ulonglong(cgo.OpenHandle(val)))
 // 		// Output: 42
 // 	}
 //
@@ -56,10 +57,11 @@ import (
 // 	}
 type Handle uintptr
 
-// OpenHandle returns a handle of a given value. If a given value is a
-// pointer, slice, map, channel, or function that refers to the same
-// object, the returned handle will also be the same. Besides, nil value
-// must not be used.
+// OpenHandle returns a handle for a given value. Each call to OpenHandle
+// returns a distinct handle, even for the same value; in particular,
+// pointers, slices, maps, channels, or functions that refer to the same
+// object still receive distinct handles. A nil value (a nil pointer,
+// slice, map, channel, or function) must not be used.
 //
 // The handle is valid until the program calls Delete on it. The handle
 // uses resources, and this package assumes that C code may hold on to
@@ -70,56 +72,24 @@ type Handle uintptr
 // passes it back to Go, which calls Value. See an example in the
 // comments of the Handle definition.
 func OpenHandle(v interface{}) Handle {
-	var k uintptr
-
-	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
+	// Reject nil reference types. Unlike the standard runtime/cgo,
+	// this package documents and guarantees that a nil value is never
+	// turned into a handle, so it can serve as a safe sentinel.
+	switch rv := reflect.ValueOf(v); rv.Kind() {
 	case reflect.Ptr, reflect.UnsafePointer, reflect.Slice,
 		reflect.Map, reflect.Chan, reflect.Func:
 		if rv.IsNil() {
 			panic("cgo: cannot use Handle for nil value")
 		}
-
-		k = rv.Pointer()
-	default:
-		// Wrap and turn a value parameter into a pointer. This enables
-		// us to always store the passing object as a pointer, and helps
-		// to identify which of whose are initially pointers or values
-		// when Value is called.
-		v = &wrap{v}
-		k = reflect.ValueOf(v).Pointer()
 	}
 
-	// v was escaped to the heap because of reflection. As Go do not have
-	// a moving GC (and possibly lasts true for a long future), it is
-	// safe to use its pointer address as the key of the global map at
-	// this moment. The implementation must be reconsidered if moving GC
-	// is introduced internally in the runtime.
-	actual, loaded := m.LoadOrStore(k, v)
-	if !loaded {
-		return Handle(k)
+	h := atomic.AddUintptr(&handleIdx, 1)
+	if h == 0 {
+		panic("cgo: ran out of handle space")
 	}
 
-	arv := reflect.ValueOf(actual)
-	switch arv.Kind() {
-	case reflect.Ptr, reflect.UnsafePointer, reflect.Slice,
-		reflect.Map, reflect.Chan, reflect.Func:
-		// The underlying object of the given Go value already have
-		// its existing handle.
-		if arv.Pointer() == k {
-			return Handle(k)
-		}
-
-		// If the loaded pointer is inconsistent with the new pointer,
-		// it means the address has been used for different objects
-		// because of GC and its address is reused for a new Go object,
-		// meaning that the Handle does not call Delete explicitly when
-		// the old Go value is not needed. Consider this as a misuse of
-		// a handle, do panic.
-		panic("cgo: misuse of a Handle")
-	default:
-		panic("cgo: Handle implementation has an internal bug")
-	}
+	handles.Store(h, v)
+	return Handle(h)
 }
 
 // Delete invalidates a handle. This method must be called when C code no
@@ -128,7 +98,7 @@ func OpenHandle(v interface{}) Handle {
 //
 // The method panics if the handle is invalid already.
 func (h Handle) Delete() {
-	_, ok := m.LoadAndDelete(uintptr(h))
+	_, ok := handles.LoadAndDelete(uintptr(h))
 	if !ok {
 		panic("cgo: misuse of an invalid Handle")
 	}
@@ -138,17 +108,14 @@ func (h Handle) Delete() {
 //
 // The method panics if the handle is invalid already.
 func (h Handle) Value() interface{} {
-	v, ok := m.Load(uintptr(h))
+	v, ok := handles.Load(uintptr(h))
 	if !ok {
 		panic("cgo: misuse of an invalid Handle")
-	}
-	if wv, ok := v.(*wrap); ok {
-		return wv.v
 	}
 	return v
 }
 
-var m = &sync.Map{} // map[uintptr]interface{}
-
-// wrap wraps a Go value.
-type wrap struct{ v interface{} }
+var (
+	handles   = &sync.Map{} // map[uintptr]interface{}
+	handleIdx uintptr       // accessed atomically
+)
