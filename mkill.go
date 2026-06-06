@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -114,10 +113,6 @@ func WaitThreads(ctx context.Context) (ok bool) {
 	}
 }
 
-func checkwork() error {
-	_, err := exec.Command("bash", "-c", cmdThreads).Output()
-	if err != nil {
-		return fmt.Errorf("runtime: failed to use the package: %w", err)
-	}
-	return nil
-}
+// checkwork verifies, before the watcher starts, that this platform can
+// actually count the process's threads. It is implemented per platform
+// (see mkill_<goos>.go) because the counting mechanism differs.
