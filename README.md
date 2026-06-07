@@ -12,6 +12,9 @@ an extend to Go `runtime` package
 - [`thread`](./thread) — threading facilities: scheduling calls on a
   specific OS thread, thread-local storage, and a bounded thread pool.
   Previously published as `golang.design/x/thread`.
+- [`mainthread`](./mainthread) — schedule functions to run on the main OS
+  thread (e.g. for GUI/OpenGL). Previously published as
+  `golang.design/x/mainthread`.
 
 ## License
 
