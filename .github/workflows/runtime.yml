@@ -31,3 +31,7 @@ jobs:
     - name: RunTests
       run: |
         go test -v -covermode=atomic ./...
+
+    - name: RunTests (goidfast)
+      run: |
+        go test -v -tags goidfast ./...

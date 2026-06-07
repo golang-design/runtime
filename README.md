@@ -12,6 +12,15 @@ The root package provides:
 - `SetMaxThreads` / `WaitThreads` / `NumThreads` — cap the number of OS
   threads the process uses, and wait until the count converges.
 
+By default `Goid` parses `runtime.Stack` (portable, ~µs). Build with
+`-tags goidfast` on amd64/arm64 for a ~ns implementation that reads the id
+directly from the runtime goroutine structure (the offset is calibrated at
+startup, with a safe fallback to the portable path):
+
+```
+go build -tags goidfast ./...
+```
+
 Use it alongside the standard `runtime` package; it does not re-export it.
 
 ## Subpackages
