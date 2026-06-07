@@ -8,6 +8,7 @@ package runtime_test
 
 import (
 	"fmt"
+	stdruntime "runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,7 +20,7 @@ import (
 
 func slowGetGoID() int64 {
 	var buf [64]byte
-	n := runtime.Stack(buf[:], false)
+	n := stdruntime.Stack(buf[:], false)
 	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
 	id, _ := strconv.ParseInt(idField, 10, 64) // very unlikely to be failed
 	return id

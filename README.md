@@ -1,11 +1,18 @@
 # runtime [![PkgGoDev](https://pkg.go.dev/badge/golang.design/x/runtime)](https://pkg.go.dev/golang.design/x/runtime) ![](https://changkun.de/urlstat?mode=github&repo=golang-design/runtime)![runtime](https://github.com/golang-design/runtime/workflows/runtime/badge.svg?branch=main)
 
-an extend to Go `runtime` package
+runtime utilities that complement the standard library `runtime` package
 
-```diff
--import "runtime"
-+import "golang.design/x/runtime"
+```go
+import "golang.design/x/runtime"
 ```
+
+The root package provides:
+
+- `Goid` — the ID of the current goroutine.
+- `SetMaxThreads` / `WaitThreads` / `NumThreads` — cap the number of OS
+  threads the process uses, and wait until the count converges.
+
+Use it alongside the standard `runtime` package; it does not re-export it.
 
 ## Subpackages
 

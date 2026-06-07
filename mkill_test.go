@@ -9,6 +9,7 @@ package runtime_test
 import (
 	"context"
 	"fmt"
+	stdruntime "runtime"
 	"sync"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func TestNumThreads(t *testing.T) {
 	done := make(chan struct{})
 	for i := 0; i < k; i++ {
 		go func() {
-			runtime.LockOSThread()
+			stdruntime.LockOSThread()
 			ready.Done()
 			<-release // hold the OS thread so it stays counted
 			done <- struct{}{}
@@ -62,8 +63,8 @@ func TestSetMaxThreads(t *testing.T) {
 	wg.Add(1000)
 	for i := 0; i < 1000; i++ {
 		go func() {
-			runtime.LockOSThread()
-			defer runtime.UnlockOSThread()
+			stdruntime.LockOSThread()
+			defer stdruntime.UnlockOSThread()
 			time.Sleep(time.Second * 1)
 			wg.Done()
 		}()
@@ -81,7 +82,7 @@ func TestSetMaxThreads(t *testing.T) {
 
 func TestMinThreads(t *testing.T) {
 	old := runtime.SetMaxThreads(0)
-	n := runtime.NumCPU()
+	n := stdruntime.NumCPU()
 	if runtime.SetMaxThreads(n-1) != old {
 		t.Fatalf("number of threads is less than required in the runtime")
 	}
