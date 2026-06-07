@@ -16,6 +16,44 @@ import (
 	"golang.design/x/runtime"
 )
 
+func TestNumThreads(t *testing.T) {
+	// This is intentionally the first test in the file: it runs before any
+	// SetMaxThreads call, so the killer watcher is not yet started and the
+	// count is not racing the reaper. It guards numThreads against silently
+	// returning 0 (e.g. the old bash/ps shell-out failing in a container)
+	// and checks that the count actually reflects live OS threads.
+	base := runtime.NumThreads()
+	if base <= 0 {
+		t.Fatalf("NumThreads returned %d, want > 0", base)
+	}
+
+	const k = 16
+	var ready sync.WaitGroup
+	ready.Add(k)
+	release := make(chan struct{})
+	done := make(chan struct{})
+	for i := 0; i < k; i++ {
+		go func() {
+			runtime.LockOSThread()
+			ready.Done()
+			<-release // hold the OS thread so it stays counted
+			done <- struct{}{}
+		}()
+	}
+	ready.Wait()
+
+	got := runtime.NumThreads()
+	close(release)
+	for i := 0; i < k; i++ {
+		<-done
+	}
+
+	// k goroutines locked to distinct OS threads require at least k threads.
+	if got < k {
+		t.Fatalf("NumThreads did not reflect %d locked OS threads: got %d", k, got)
+	}
+}
+
 func TestSetMaxThreads(t *testing.T) {
 	runtime.SetMaxThreads(10)
 

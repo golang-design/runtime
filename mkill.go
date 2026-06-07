@@ -114,5 +114,11 @@ func WaitThreads(ctx context.Context) (ok bool) {
 }
 
 // checkwork verifies, before the watcher starts, that this platform can
-// actually count the process's threads. It is implemented per platform
-// (see mkill_<goos>.go) because the counting mechanism differs.
+// actually count the process's threads (numThreads is implemented per
+// platform in mkill_<goos>.go).
+func checkwork() error {
+	if numThreads() <= 0 {
+		return fmt.Errorf("runtime: cannot determine the number of OS threads on this platform")
+	}
+	return nil
+}
