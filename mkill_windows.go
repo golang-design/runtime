@@ -35,19 +35,6 @@ type threadEntry32 struct {
 	Flags          uint32
 }
 
-// checkwork verifies the toolhelp thread snapshot is usable before the
-// watcher starts. Unlike the Unix builds, Windows counts threads through
-// a syscall rather than an external command, so there is no bash/ps
-// dependency to validate here.
-func checkwork() error {
-	snapshot, err := syscall.CreateToolhelp32Snapshot(syscall.TH32CS_SNAPTHREAD, 0)
-	if err != nil {
-		return fmt.Errorf("runtime: failed to use the package: %w", err)
-	}
-	syscall.CloseHandle(snapshot)
-	return nil
-}
-
 // numThreads returns the number of OS threads owned by the current
 // process. The previous implementation returned GetCurrentProcessId,
 // i.e. the PID, which is not a thread count and made the whole

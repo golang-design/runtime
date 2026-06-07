@@ -16,15 +16,14 @@ import (
 	"strings"
 )
 
+// numThreads counts the process's OS threads via `ps M | wc -l`.
+//
+// Unlike Linux (which reads /proc) and Windows (which uses a toolhelp
+// snapshot), darwin has no cheap dependency-free thread count: /proc does
+// not exist, and the libproc/Mach alternatives require cgo or
+// Apple-discouraged raw syscalls. macOS always ships ps and a shell and is
+// not a minimal-container target, so the shell-out is kept here.
 var cmdThreads = fmt.Sprintf("ps M %d | wc -l", pid)
-
-func checkwork() error {
-	_, err := exec.Command("bash", "-c", cmdThreads).Output()
-	if err != nil {
-		return fmt.Errorf("runtime: failed to use the package: %w", err)
-	}
-	return nil
-}
 
 func numThreads() int {
 	out, err := exec.Command("bash", "-c", cmdThreads).Output()
